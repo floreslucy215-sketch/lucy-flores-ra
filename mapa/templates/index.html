@@ -1,0 +1,964 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MapGlow ✨ - Sistema de Geolocalización</title>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@300;400;500;600;700&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary: #9333ea;
+            --secondary: #c084fc;
+            --accent: #ec4899;
+            --accent-light: #f9a8d4;
+            --bg-main: #fdf4ff;
+            --bg-card: #ffffff;
+            --text-dark: #4c1d95;
+            --text-muted: #9333ea;
+            --border: #e9d5ff;
+            --success: #a78bfa;
+            --shadow: rgba(147, 51, 234, 0.15);
+        }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: linear-gradient(135deg, #fdf4ff 0%, #fae8ff 50%, #f3e8ff 100%);
+            color: var(--text-dark);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* Decoración de fondo */
+        body::before {
+            content: '';
+            position: fixed;
+            top: -50%;
+            right: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(236,72,153,0.08) 0%, transparent 60%);
+            animation: float 20s ease-in-out infinite;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translate(0, 0) rotate(0deg); }
+            50% { transform: translate(-30px, -30px) rotate(5deg); }
+        }
+
+        /* Header Expandido y Decorativo */
+        .header {
+            background: linear-gradient(135deg, #9333ea 0%, #c084fc 50%, #ec4899 100%);
+            padding: 2.5rem 3rem 4rem 3rem;
+            box-shadow: 0 10px 40px var(--shadow);
+            position: relative;
+            overflow: hidden;
+            z-index: 1;
+        }
+
+        .header::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 120"><circle cx="100" cy="60" r="40" fill="rgba(255,255,255,0.1)"/><circle cx="400" cy="80" r="30" fill="rgba(255,255,255,0.1)"/><circle cx="800" cy="50" r="50" fill="rgba(255,255,255,0.1)"/><circle cx="1100" cy="70" r="35" fill="rgba(255,255,255,0.1)"/></svg>');
+            animation: float 25s ease-in-out infinite;
+            opacity: 0.4;
+        }
+
+        .header-content {
+            position: relative;
+            z-index: 2;
+            text-align: center;
+        }
+
+        .logo-container {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 1rem;
+            background: rgba(255,255,255,0.25);
+            padding: 1.5rem 3rem;
+            border-radius: 60px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 8px 32px rgba(147,51,234,0.3);
+            margin-bottom: 1rem;
+        }
+
+        .logo-emoji {
+            font-size: 3rem;
+            animation: bounce 2s ease-in-out infinite;
+        }
+
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+
+        h1 {
+            font-family: 'Quicksand', sans-serif;
+            font-size: 3rem;
+            font-weight: 700;
+            color: white;
+            text-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            letter-spacing: -1px;
+            margin: 0;
+        }
+
+        .subtitle {
+            font-size: 1.1rem;
+            color: rgba(255,255,255,0.95);
+            margin-top: 0.75rem;
+            font-weight: 300;
+            font-family: 'Quicksand', sans-serif;
+        }
+
+        .header-stats {
+            display: flex;
+            justify-content: center;
+            gap: 3rem;
+            margin-top: 2rem;
+        }
+
+        .stat-bubble {
+            background: rgba(255,255,255,0.3);
+            padding: 1rem 2rem;
+            border-radius: 30px;
+            backdrop-filter: blur(10px);
+            border: 2px solid rgba(255,255,255,0.5);
+        }
+
+        .stat-bubble-value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: white;
+            display: block;
+        }
+
+        .stat-bubble-label {
+            font-size: 0.85rem;
+            color: rgba(255,255,255,0.9);
+            font-weight: 500;
+        }
+
+        /* Container Principal - 2 Columnas */
+        .main-container {
+            max-width: 1600px;
+            margin: -2rem auto 2rem;
+            padding: 0 3rem;
+            display: grid;
+            grid-template-columns: 420px 1fr;
+            gap: 2rem;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* Sidebar Izquierdo */
+        .sidebar {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .card {
+            background: var(--bg-card);
+            border-radius: 30px;
+            padding: 2rem;
+            box-shadow: 0 10px 30px var(--shadow);
+            border: 2px solid var(--border);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 5px;
+            background: linear-gradient(90deg, var(--primary) 0%, var(--accent) 100%);
+        }
+
+        .card-title {
+            font-family: 'Quicksand', sans-serif;
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--primary);
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        /* Upload Zone Suave */
+        .upload-area {
+            border: 3px dashed var(--secondary);
+            border-radius: 25px;
+            padding: 3rem 2rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            background: linear-gradient(135deg, rgba(147,51,234,0.03) 0%, rgba(236,72,153,0.03) 100%);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .upload-area::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, transparent 0%, rgba(236,72,153,0.1) 100%);
+            opacity: 0;
+            transition: opacity 0.4s ease;
+        }
+
+        .upload-area:hover {
+            border-color: var(--accent);
+            transform: translateY(-5px) scale(1.02);
+            box-shadow: 0 15px 35px var(--shadow);
+        }
+
+        .upload-area:hover::before {
+            opacity: 1;
+        }
+
+        .upload-area.dragover {
+            border-color: var(--accent);
+            background: linear-gradient(135deg, rgba(147,51,234,0.1) 0%, rgba(236,72,153,0.1) 100%);
+            transform: scale(1.03);
+        }
+
+        .upload-icon {
+            font-size: 4rem;
+            margin-bottom: 1rem;
+            display: inline-block;
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.1); opacity: 0.8; }
+        }
+
+        .upload-text {
+            font-size: 1.2rem;
+            color: var(--text-dark);
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+            position: relative;
+            z-index: 1;
+        }
+
+        .upload-hint {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            font-weight: 400;
+            position: relative;
+            z-index: 1;
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        /* Botón Demo Bonito */
+        .demo-btn {
+            width: 100%;
+            padding: 1.25rem;
+            background: linear-gradient(135deg, var(--accent) 0%, var(--accent-light) 100%);
+            color: white;
+            border: none;
+            border-radius: 20px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 8px 20px rgba(236,72,153,0.3);
+            font-family: 'Quicksand', sans-serif;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.75rem;
+            margin-top: 1.5rem;
+        }
+
+        .demo-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 12px 28px rgba(236,72,153,0.4);
+        }
+
+        .demo-btn:active {
+            transform: translateY(-1px);
+        }
+
+        /* Info Box Suave */
+        .info-box {
+            background: linear-gradient(135deg, rgba(147,51,234,0.05) 0%, rgba(192,132,252,0.05) 100%);
+            border: 2px solid var(--border);
+            border-radius: 20px;
+            padding: 1.5rem;
+            margin-top: 1.5rem;
+        }
+
+        .info-title {
+            font-family: 'Quicksand', sans-serif;
+            font-size: 1.1rem;
+            color: var(--primary);
+            margin-bottom: 1rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .info-item {
+            display: flex;
+            align-items: start;
+            gap: 0.75rem;
+            margin-bottom: 0.75rem;
+            font-size: 0.95rem;
+            color: var(--text-dark);
+            line-height: 1.6;
+        }
+
+        .info-icon {
+            font-size: 1.2rem;
+            flex-shrink: 0;
+        }
+
+        /* Lista de Ubicaciones Bonita */
+        .locations-card {
+            min-height: 400px;
+            max-height: 600px;
+            overflow-y: auto;
+            padding: 0.5rem;
+        }
+
+        .location-item {
+            background: linear-gradient(135deg, rgba(147,51,234,0.03) 0%, rgba(236,72,153,0.03) 100%);
+            border: 2px solid var(--border);
+            border-radius: 20px;
+            padding: 1.25rem;
+            margin-bottom: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .location-item::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 5px;
+            background: linear-gradient(180deg, var(--primary) 0%, var(--accent) 100%);
+            transform: translateX(-5px);
+            transition: transform 0.3s ease;
+        }
+
+        .location-item:hover {
+            transform: translateX(10px);
+            box-shadow: 0 8px 20px var(--shadow);
+            border-color: var(--secondary);
+        }
+
+        .location-item:hover::before {
+            transform: translateX(0);
+        }
+
+        .location-badge {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 1rem;
+            box-shadow: 0 4px 12px var(--shadow);
+        }
+
+        .location-name {
+            font-weight: 600;
+            color: var(--text-dark);
+            margin-bottom: 0.5rem;
+            padding-right: 50px;
+            font-size: 1.05rem;
+        }
+
+        .location-coords {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            font-family: 'Courier New', monospace;
+        }
+
+        /* Área del Mapa */
+        .map-section {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .map-container {
+            background: var(--bg-card);
+            border-radius: 30px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px var(--shadow);
+            border: 2px solid var(--border);
+            height: calc(100vh - 350px);
+            min-height: 500px;
+            position: relative;
+        }
+
+        #map {
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Mensajes Bonitos */
+        .message {
+            padding: 1.25rem 1.5rem;
+            border-radius: 20px;
+            margin: 1rem 0;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            animation: slideIn 0.4s ease;
+            font-weight: 500;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-15px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .message.error {
+            background: linear-gradient(135deg, rgba(239,68,68,0.1) 0%, rgba(252,165,165,0.1) 100%);
+            border: 2px solid #fca5a5;
+            color: #dc2626;
+        }
+
+        .message.success {
+            background: linear-gradient(135deg, rgba(167,139,250,0.15) 0%, rgba(196,181,253,0.15) 100%);
+            border: 2px solid var(--success);
+            color: var(--primary);
+        }
+
+        .message-icon {
+            font-size: 1.5rem;
+        }
+
+        /* Estado Vacío */
+        .empty-state {
+            text-align: center;
+            padding: 3rem 2rem;
+            color: var(--text-muted);
+        }
+
+        .empty-icon {
+            font-size: 5rem;
+            margin-bottom: 1rem;
+            opacity: 0.4;
+        }
+
+        .empty-text {
+            font-size: 1.15rem;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+            color: var(--text-dark);
+        }
+
+        .empty-hint {
+            font-size: 0.95rem;
+            opacity: 0.8;
+        }
+
+        /* Scrollbar Personalizado Femenino */
+        ::-webkit-scrollbar {
+            width: 10px;
+            height: 10px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--border);
+            border-radius: 10px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: linear-gradient(180deg, var(--primary) 0%, var(--accent) 100%);
+            border-radius: 10px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: linear-gradient(180deg, var(--accent) 0%, var(--accent-light) 100%);
+        }
+
+        /* Loading Bonito */
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(236,72,153,0.3);
+            border-radius: 50%;
+            border-top-color: var(--accent);
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Marcadores Personalizados */
+        .custom-marker {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);
+            width: 40px;
+            height: 40px;
+            border-radius: 50% 50% 50% 0;
+            transform: rotate(-45deg);
+            border: 3px solid white;
+            box-shadow: 0 4px 15px var(--shadow);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .marker-number {
+            transform: rotate(45deg);
+            font-weight: 700;
+            color: white;
+            font-size: 15px;
+        }
+
+        /* Estilos para el control de capas - Tema Femenino */
+        .leaflet-control-layers {
+            background: linear-gradient(135deg, rgba(255,255,255,0.98) 0%, rgba(253,244,255,0.98) 100%) !important;
+            border: 2px solid var(--secondary) !important;
+            border-radius: 20px !important;
+            box-shadow: 0 8px 25px var(--shadow) !important;
+            padding: 1rem !important;
+            backdrop-filter: blur(10px);
+        }
+
+        .leaflet-control-layers-toggle {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%) !important;
+            border-radius: 12px !important;
+            width: 44px !important;
+            height: 44px !important;
+            box-shadow: 0 4px 15px var(--shadow) !important;
+        }
+
+        .leaflet-control-layers-expanded {
+            padding: 1.25rem !important;
+        }
+
+        .leaflet-control-layers-base label {
+            color: var(--text-dark) !important;
+            font-family: 'Poppins', sans-serif !important;
+            font-size: 1rem !important;
+            font-weight: 500 !important;
+            display: flex !important;
+            align-items: center !important;
+            gap: 0.75rem !important;
+            padding: 0.75rem 1rem !important;
+            border-radius: 15px !important;
+            transition: all 0.3s ease !important;
+            cursor: pointer !important;
+            margin-bottom: 0.5rem !important;
+            background: transparent !important;
+        }
+
+        .leaflet-control-layers-base label:hover {
+            background: linear-gradient(135deg, rgba(147,51,234,0.08) 0%, rgba(236,72,153,0.08) 100%) !important;
+            transform: translateX(3px);
+        }
+
+        .leaflet-control-layers-base input[type="radio"] {
+            accent-color: var(--accent) !important;
+            cursor: pointer !important;
+            width: 18px !important;
+            height: 18px !important;
+        }
+
+        .leaflet-control-layers-separator {
+            border-top: 2px solid var(--border) !important;
+            margin: 0.75rem 0 !important;
+        }
+
+        /* Responsive */
+        @media (max-width: 1200px) {
+            .main-container {
+                grid-template-columns: 1fr;
+                gap: 1.5rem;
+                padding: 0 2rem;
+            }
+
+            .header-stats {
+                flex-wrap: wrap;
+            }
+
+            .map-container {
+                height: 500px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .header {
+                padding: 2rem 1.5rem 3rem;
+            }
+
+            h1 {
+                font-size: 2rem;
+            }
+
+            .main-container {
+                padding: 0 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="header-content">
+            <div class="logo-container">
+                <span class="logo-emoji">✨</span>
+                <div>
+                    <h1>MapGlow</h1>
+                    <div class="subtitle">Sistema de Geolocalización Inteligente</div>
+                </div>
+            </div>
+            
+            <div class="header-stats">
+                <div class="stat-bubble">
+                    <span class="stat-bubble-value" id="headerCount">0</span>
+                    <span class="stat-bubble-label">Ubicaciones</span>
+                </div>
+                <div class="stat-bubble">
+                    <span class="stat-bubble-value">✓</span>
+                    <span class="stat-bubble-label">Sistema Activo</span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <div class="main-container">
+        <!-- Sidebar Izquierdo -->
+        <div class="sidebar">
+            <!-- Card de Upload -->
+            <div class="card">
+                <div class="card-title">
+                    📤 Cargar Ubicaciones
+                </div>
+                
+                <div class="upload-area" id="uploadZone">
+                    <div class="upload-icon">💝</div>
+                    <div class="upload-text">Arrastra tu Excel aquí</div>
+                    <div class="upload-hint">o haz clic para seleccionar</div>
+                    <input type="file" id="fileInput" class="file-input" accept=".xlsx,.xls">
+                </div>
+
+                <button class="demo-btn" id="demoButton">
+                    <span>🎀</span>
+                    <span>Ver Datos de Ejemplo</span>
+                </button>
+
+                <div id="messageArea"></div>
+
+                <div class="info-box">
+                    <div class="info-title">
+                        💡 Formato del Archivo
+                    </div>
+                    <div class="info-item">
+                        <span class="info-icon">🌸</span>
+                        <span><strong>Columna 1:</strong> Nombre o descripción del lugar</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-icon">🌸</span>
+                        <span><strong>Columna 2:</strong> Coordenadas (lat, lon)</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-icon">💫</span>
+                        <span>Ejemplo: -6.6408, -79.3875</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Card de Lista -->
+            <div class="card">
+                <div class="card-title">
+                    📍 Mis Ubicaciones
+                </div>
+                <div class="locations-card" id="locationsList">
+                    <div class="empty-state">
+                        <div class="empty-icon">🗺️</div>
+                        <div class="empty-text">No hay ubicaciones aún</div>
+                        <div class="empty-hint">Sube un archivo Excel para comenzar</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sección del Mapa -->
+        <div class="map-section">
+            <div class="map-container">
+                <div id="map"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <script>
+        // Inicializar mapa con estilo suave
+        const map = L.map('map').setView([-6.6408, -79.3875], 13);
+
+        // Definir las 3 capas base con estilo femenino
+        const calles = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+            attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
+            subdomains: 'abcd',
+            maxZoom: 20
+        });
+
+        const satelite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+            attribution: 'Tiles &copy; Esri',
+            maxZoom: 20
+        });
+
+        const terreno = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap contributors, SRTM | Map style: &copy; OpenTopoMap',
+            maxZoom: 17
+        });
+
+        // Agregar capa de calles por defecto
+        calles.addTo(map);
+
+        // Control de capas con emojis bonitos
+        const baseMaps = {
+            "🗺️ Calles": calles,
+            "🛰️ Satélite": satelite,
+            "⛰️ Terreno": terreno
+        };
+
+        L.control.layers(baseMaps, null, {
+            position: 'topright',
+            collapsed: false
+        }).addTo(map);
+
+        let markers = [];
+        let currentLocations = [];
+
+        // Elementos del DOM
+        const uploadZone = document.getElementById('uploadZone');
+        const fileInput = document.getElementById('fileInput');
+        const demoButton = document.getElementById('demoButton');
+        const messageArea = document.getElementById('messageArea');
+        const locationsList = document.getElementById('locationsList');
+        const headerCount = document.getElementById('headerCount');
+
+        // Funciones de mensaje
+        function showMessage(text, type = 'info') {
+            const iconMap = {
+                'error': '❌',
+                'success': '✅',
+                'info': 'ℹ️'
+            };
+            
+            messageArea.innerHTML = `
+                <div class="message ${type}">
+                    <span class="message-icon">${iconMap[type]}</span>
+                    <span>${text}</span>
+                </div>
+            `;
+            
+            if (type === 'success') {
+                setTimeout(() => {
+                    messageArea.innerHTML = '';
+                }, 5000);
+            }
+        }
+
+        // Limpiar mapa
+        function clearMap() {
+            markers.forEach(marker => map.removeLayer(marker));
+            markers = [];
+        }
+
+        // Crear icono personalizado
+        function createCustomIcon(number) {
+            return L.divIcon({
+                html: `<div class="custom-marker"><span class="marker-number">${number}</span></div>`,
+                className: '',
+                iconSize: [40, 40],
+                iconAnchor: [20, 40],
+                popupAnchor: [0, -40]
+            });
+        }
+
+        // Renderizar ubicaciones
+        function renderLocations(locations) {
+            clearMap();
+            currentLocations = locations;
+            
+            // Actualizar contador en header
+            headerCount.textContent = locations.length;
+            
+            if (locations.length === 0) {
+                locationsList.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-icon">🗺️</div>
+                        <div class="empty-text">No se encontraron ubicaciones</div>
+                        <div class="empty-hint">Verifica que el Excel tenga el formato correcto</div>
+                    </div>
+                `;
+                return;
+            }
+
+            // Renderizar lista
+            locationsList.innerHTML = locations.map((loc, index) => `
+                <div class="location-item" onclick="focusLocation(${index})">
+                    <div class="location-badge">${index + 1}</div>
+                    <div class="location-name">${loc.descripcion}</div>
+                    <div class="location-coords">${loc.lat}, ${loc.lon}</div>
+                </div>
+            `).join('');
+
+            // Agregar marcadores
+            const bounds = [];
+            locations.forEach((loc, index) => {
+                const marker = L.marker([loc.lat, loc.lon], {
+                    icon: createCustomIcon(index + 1)
+                }).addTo(map);
+
+                marker.bindPopup(`
+                    <div style="text-align: center; padding: 0.75rem; font-family: Quicksand;">
+                        <strong style="color: #9333ea; font-size: 1.15rem; display: block; margin-bottom: 0.5rem;">
+                            ${loc.descripcion}
+                        </strong>
+                        <span style="color: #6b7280; font-size: 0.9rem; font-family: monospace;">
+                            ${loc.lat}, ${loc.lon}
+                        </span>
+                    </div>
+                `);
+
+                markers.push(marker);
+                bounds.push([loc.lat, loc.lon]);
+            });
+
+            // Ajustar vista del mapa
+            if (bounds.length > 0) {
+                map.fitBounds(bounds, { padding: [50, 50] });
+            }
+        }
+
+        // Enfocar ubicación
+        window.focusLocation = function(index) {
+            const location = currentLocations[index];
+            map.setView([location.lat, location.lon], 17);
+            markers[index].openPopup();
+        };
+
+        // Upload de archivo
+        uploadZone.addEventListener('click', () => fileInput.click());
+
+        uploadZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadZone.classList.add('dragover');
+        });
+
+        uploadZone.addEventListener('dragleave', () => {
+            uploadZone.classList.remove('dragover');
+        });
+
+        uploadZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadZone.classList.remove('dragover');
+            
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleFileUpload(files[0]);
+            }
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleFileUpload(e.target.files[0]);
+            }
+        });
+
+        function handleFileUpload(file) {
+            if (!file.name.endsWith('.xlsx') && !file.name.endsWith('.xls')) {
+                showMessage('Por favor selecciona un archivo Excel (.xlsx o .xls)', 'error');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            showMessage('Procesando archivo... <span class="loading"></span>', 'info');
+
+            fetch('/upload', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    showMessage(data.error, 'error');
+                } else {
+                    showMessage(`¡Perfecto! ${data.count} ubicaciones cargadas ✨`, 'success');
+                    renderLocations(data.locations);
+                }
+            })
+            .catch(error => {
+                showMessage('Error al procesar el archivo', 'error');
+                console.error('Error:', error);
+            });
+        }
+
+        // Botón de demostración
+        demoButton.addEventListener('click', () => {
+            showMessage('Cargando datos de ejemplo... <span class="loading"></span>', 'info');
+
+            fetch('/demo')
+                .then(response => response.json())
+                .then(data => {
+                    showMessage(`¡Listo! ${data.count} ubicaciones de ejemplo cargadas ✨`, 'success');
+                    renderLocations(data.locations);
+                })
+                .catch(error => {
+                    showMessage('Error al cargar datos de ejemplo', 'error');
+                    console.error('Error:', error);
+                });
+        });
+    </script>
+</body>
+</html>
